@@ -45,21 +45,25 @@ void run(char *cmds) {
 
   if(strcmp(args[0],"exit") == 0)
     exit(0);
-
-  int pip = fork();
-
-  if(pip != 0) {
-    wait(NULL);
+  else if(strcmp(args[0],"cd") == 0) {
+    if(args[1] == NULL)
+      fprintf(stderr,"cd missing argument.\n");
+    else
+      chdir(args[1]);
   } else {
-    char program[MAX_LENGTH];
-    strcpy(program,path);
-    strcat(program,args[0]);
-    int rv = execv(program,args);
-    exit(0);
+    int pip = fork();
+
+    if(pip != 0) {
+      wait(NULL);
+    } else {
+      char program[MAX_LENGTH];
+      strcpy(program,path);
+      strcat(program,args[0]);
+      int rv = execv(program,args);
+      exit(0);
+    }
   }
 }
-
-static int qt_calls = 0;
 
 int main() {
   char line[MAX_LENGTH];
