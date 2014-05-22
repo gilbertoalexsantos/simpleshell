@@ -1,7 +1,7 @@
 .SILENT: t comp
 
 comp:
-	gcc shell.c -o shell;
+	gcc shell.c -o shell.o;
 
-t: comp shell
-	./shell
+t: comp s.o
+	./shell.o

@@ -8,6 +8,7 @@
 #include <sys/wait.h>
 
 #define MAX_LENGTH 1024
+#define CLEAR_SCREEN printf("\e[1;1H\e[2J");
 #define LIM " \t\r\n"
 
 const char *path = "/bin/";
@@ -33,7 +34,7 @@ void parse(char *source, int size, char *sink[]) {
   int ct = 0;
   char *f = strtok(flag,LIM);
   while(f != NULL) {
-    sink[ct] = malloc(sizeof(char[strlen(f) + 1]));
+    sink[ct] = (char*) malloc(sizeof(char[strlen(f) + 1]));
     strcpy(sink[ct],f);
     f = strtok(NULL,LIM);
     ct++;
@@ -56,6 +57,8 @@ void run(char *cmds) {
       fprintf(stderr,"cd missing argument.\n");
     else
       chdir(args[1]);
+  } else if(strcmp(args[0],"clear") == 0) {
+    CLEAR_SCREEN
   } else {
     int pip = fork();
 
