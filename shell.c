@@ -58,7 +58,7 @@ void run(char *cmds) {
     else
       chdir(args[1]);
   } else if(strcmp(args[0],"clear") == 0) {
-    CLEAR_SCREEN
+    CLEAR_SCREEN;
   } else {
     int pip = fork();
 

@@ -3,5 +3,5 @@
 comp:
 	gcc shell.c -o shell.o;
 
-t: comp s.o
+t: comp shell.o
 	./shell.o
