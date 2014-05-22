@@ -27,8 +27,11 @@ int count_args(char *arg) {
 }
 
 void parse(char *source, int size, char *sink[]) {
+  char flag[strlen(source) + 1];
+  strcpy(flag,source);
+
   int ct = 0;
-  char *f = strtok(source,LIM);
+  char *f = strtok(flag,LIM);
   while(f != NULL) {
     sink[ct] = malloc(sizeof(char[strlen(f) + 1]));
     strcpy(sink[ct],f);
@@ -42,6 +45,9 @@ void run(char *cmds) {
   char *args[qt_args + 1];
   parse(cmds,qt_args,args);
   args[qt_args] = NULL;
+
+  if(qt_args == 0)
+    return;
 
   if(strcmp(args[0],"exit") == 0)
     exit(0);
