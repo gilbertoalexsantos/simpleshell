@@ -60,16 +60,14 @@ void run(char *cmds) {
   } else if(strcmp(args[0],"clear") == 0) {
     CLEAR_SCREEN;
   } else {
-    int pip = fork();
-
-    if(pip != 0) {
+    int pid = fork();
+    if(pid != 0)
       wait(NULL);
-    } else {
+    else {
       char program[MAX_LENGTH];
       strcpy(program,path);
       strcat(program,args[0]);
-      int rv = execv(program,args);
-      exit(0);
+      execv(program,args);
     }
   }
 }
