@@ -87,12 +87,12 @@ void run(const char *cmds) {
     if(pid != 0)
       wait(NULL);
     else {
-      char program[MAX_LENGTH];
       int p = get_file_path(args[0]);
       if(p == -1) {
         fprintf(stderr,"command not found!\n");
         exit(0);
       }
+      char program[MAX_LENGTH];
       strcpy(program,path[p]);
       strcat(program,args[0]);
       execv(program,args);
@@ -133,7 +133,8 @@ void init() {
   size_path = count_lines(fp);
   fseek(fp,0,SEEK_SET);
   path = (char**) malloc(size_path * sizeof(char**));
-  for(int i = 0; i < size_path; i++) {
+  int i = 0;
+  for(i = 0; i < size_path; i++) {
     path[i] = (char*) malloc(sizeof(char[MAX_LENGTH_PATH]));
     fscanf(fp,"%s",path[i]);
   }
