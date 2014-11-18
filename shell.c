@@ -7,25 +7,24 @@
 #include <sys/types.h>
 #include <sys/wait.h>
 
-
 #define MAX_LENGTH 1024
-#define MAX_LENGTH_PATH 100
+#define MAX_LENGTH_PATH 300
 #define CLEAR_SCREEN printf("\e[1;1H\e[2J");
-#define LIM " \t\r\n"
+#define SEPARATOR " \t\r\n"
 
 char **path;
 int size_path;
 
-// Count the number of substrings separeted by the constant LIM
+// Count the number of substrings separeted by the constant SEPARATOR
 int count_args(const char *arg) {
   char flag[strlen(arg) + 1];
-  strcpy(flag,arg);
+  strcpy(flag, arg);
 
   int ret = 0;
-  char *f = strtok(flag,LIM);
+  char *f = strtok(flag, SEPARATOR);
   while(f != NULL) {
     ret++;
-    f = strtok(NULL,LIM);
+    f = strtok(NULL, SEPARATOR);
   }
 
   return ret;
@@ -34,15 +33,14 @@ int count_args(const char *arg) {
 // Put the arguments on sink
 void parse(const char *source, int size, char *sink[]) {
   char flag[strlen(source) + 1];
-  strcpy(flag,source);
+  strcpy(flag, source);
 
   int ct = 0;
-  char *f = strtok(flag,LIM);
+  char *f = strtok(flag, SEPARATOR);
   while(f != NULL) {
-    sink[ct] = (char*) malloc(sizeof(char[strlen(f) + 1]));
-    strcpy(sink[ct],f);
-    f = strtok(NULL,LIM);
-    ct++;
+    sink[ct] = malloc(sizeof(char[strlen(f) + 1]));
+    strcpy(sink[ct++], f);
+    f = strtok(NULL, SEPARATOR);
   }
 
   sink[size] = NULL;
@@ -90,7 +88,7 @@ void run(const char *cmds) {
       int p = get_file_path(args[0]);
       if(p == -1) {
         fprintf(stderr,"command not found!\n");
-        exit(0);
+        exit(1);
       }
       char program[MAX_LENGTH];
       strcpy(program,path[p]);
@@ -102,8 +100,7 @@ void run(const char *cmds) {
 
 // Create the file .shell_path
 void create_shell_path() {
-  FILE *fp;
-  fp = fopen(".shell_path","w");
+  FILE *fp = fopen(".shell_path","w");
   if(fp == NULL) {
     fprintf(stderr,"error when creating file '.shell_path'\n");
     exit(1);
@@ -113,7 +110,7 @@ void create_shell_path() {
   fclose(fp);
 }
 
-// Count the unmber of lines in a file
+// Count the number of lines in a file
 int count_lines(FILE *f) {
   char c;
   int ret = 0;
@@ -124,18 +121,18 @@ int count_lines(FILE *f) {
 
 // Transfer the directorys in .shell_path to the matrix path
 void init() {
-  FILE *fp;
-  fp = fopen(".shell_path","r");
+  FILE *fp = fopen(".shell_path","r");
 
   if(fp == NULL)
     create_shell_path();
 
   size_path = count_lines(fp);
   fseek(fp,0,SEEK_SET);
-  path = (char**) malloc(size_path * sizeof(char**));
+  path = malloc(size_path * sizeof(char**));
   int i = 0;
   for(i = 0; i < size_path; i++) {
-    path[i] = (char*) malloc(sizeof(char[MAX_LENGTH_PATH]));
+    // TODO: Use less memory
+    path[i] = malloc(sizeof(char[MAX_LENGTH_PATH]));
     fscanf(fp,"%s",path[i]);
   }
 
@@ -144,6 +141,7 @@ void init() {
 
 int main() {
   init();
+  
   char line[MAX_LENGTH];
   while(1) {
     printf("$> ");
