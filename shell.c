@@ -27,10 +27,13 @@ char *copy(const char *source) {
 }
 
 /*
-  Return a pointer with the source appended with 'append'
-  The join is with a '/' (if the final character of source is
-  not a '/')
+  Return a string, that is a result of the joint of 
+  source and append. Example:
 
+  '/bin'  + 'ls'  => '/bin/ls'
+  '/bin/' + 'ls'  => '/bin/ls'
+  '/bin/' + '/ls' => '/bin/ls'
+  '/bin'  + '/ls' => '/bin/ls'
 */
 char *appendPath(const char *source,
                  const char *append) {
@@ -160,7 +163,7 @@ int lenLines(FILE *file) {
 }
 
 /*
-  Return a array o chars containing all lines from source
+  Return a array o strings containing all lines from source
 */
 char **getLines(const char *source) {
   FILE *file = fopen(source, "r");
