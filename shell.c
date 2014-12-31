@@ -4,152 +4,292 @@
 #include <ctype.h>
 #include <unistd.h>
 #include <dirent.h>
+#include <assert.h>
 #include <sys/types.h>
 #include <sys/wait.h>
+#include <sys/stat.h>
 
-#define MAX_LENGTH 1024
-#define MAX_LENGTH_PATH 300
-#define CLEAR_SCREEN printf("\e[1;1H\e[2J");
-#define SEPARATOR " \t\r\n"
+#define MAX_LENGTH_COMMAND 1024
+#define MAX_LENGTH_PATH 1024
+#define CLEAR_SCREEN printf("\e[1;1H\e[2J")
+#define SPLITER " \t\r\n"
+#define SHELL_PATH ".shell_path"
 
-char **path;
-int size_path;
+char **directoriesFromShellPath;
 
-// Count the number of substrings separeted by the constant SEPARATOR
-int count_args(const char *arg) {
-  char flag[strlen(arg) + 1];
-  strcpy(flag, arg);
+/*
+  Return a pointer to a copy of the source
+*/
+char *copy(const char *source) {
+  char *sink = malloc((sizeof (char)) * strlen(source) + 1);
+  strcpy(sink, source);
+  
+  return sink;
+}
+
+/*
+  Return a pointer with the source appended with 'append'
+  The join is with a '/' (if the final character of source is
+  not a '/')
+
+*/
+char *appendPath(const char *source,
+                 const char *append) {
+  int offset = 0;
+  int lenSource = strlen(source);
+  if (lenSource) {
+    offset = (source[lenSource - 1] != '/');
+  }
+  
+  char *sink = malloc((sizeof (char)) * (lenSource + strlen(append) + offset));
+  
+  strcpy(sink, source);
+  if (offset) {
+    strcat(sink, "/");    
+  }
+  strcat(sink, append);
+  
+  return sink;
+}
+
+/*
+  Return the number of substrings separated by the spliter
+*/
+int lenSubstrings(const char *source,
+                  const char *spliter) {
+  char *flag = copy(source);
 
   int ret = 0;
-  char *f = strtok(flag, SEPARATOR);
+  
+  char *f = strtok(flag, spliter);
   while(f != NULL) {
     ret++;
-    f = strtok(NULL, SEPARATOR);
+    f = strtok(NULL, spliter);
   }
-
+  free(flag);
+  
   return ret;
 }
 
-// Put the arguments on sink
-void parse(const char *source, int size, char *sink[]) {
-  char flag[strlen(source) + 1];
-  strcpy(flag, source);
+/*
+  Return a array of strings with all substrings that are
+  generated from a split in source, using the spliter
+  OBS: The last position is filled with NULL
+*/
+char **splitSubstrings(const char *source,
+                       const char *spliter) {
+  char *flag = copy(source);
 
-  int ct = 0;
-  char *f = strtok(flag, SEPARATOR);
+  int lenSubstrings_ = lenSubstrings(source, spliter);
+  char **sink = malloc((sizeof (char*)) * lenSubstrings_ + 1);
+  
+  int counter = 0;
+  
+  char *f = strtok(flag, spliter);
   while(f != NULL) {
-    sink[ct] = malloc(sizeof(char[strlen(f) + 1]));
-    strcpy(sink[ct++], f);
-    f = strtok(NULL, SEPARATOR);
+    sink[counter++] = copy(f);
+    f = strtok(NULL, spliter);
   }
+  free(flag);
 
-  sink[size] = NULL;
+  sink[lenSubstrings_] = NULL;
+  
+  return sink;
 }
 
-// Return the index of the correspondent path to the cmd, if doesn't exist,
-// return -1
-int get_file_path(const char *cmd) {
-  int i = 0;
-  for(i = 0; i < size_path; i++) {
-    DIR *d;
-    struct dirent *dir;
-    d = opendir(path[i]);
-    if(d == NULL)
+/*
+  Return 1 if the file is a directory, 0 if not.
+*/
+int isDirectory(const char *file) {
+  struct stat st;
+  lstat(file, &st);
+  return (S_ISDIR(st.st_mode)) ? 1 : 0;
+}
+
+/*
+  Do a depth search in the directory trying to find the file,
+  returning 1/0 if found/not found
+*/
+int findFileInDirectory(const char *file,
+                        const char *directory) {
+  DIR *directory_ = opendir(directory);
+  if (directory_ == NULL) {
+    return 0;
+  }
+
+  struct dirent *dir;
+  while ((dir = readdir(directory_)) != NULL) {
+    if ((strcmp(dir->d_name, ".") == 0) ||
+        (strcmp(dir->d_name, "..") == 0)) {
       continue;
-    while((dir = readdir(d)) != NULL) {
-      if(strcmp(dir->d_name,cmd) == 0)
-        return i;
     }
+    if (isDirectory(dir->d_name)) {
+      char *newDirectory = appendPath(directory, dir->d_name);
+      int found = findFileInDirectory(file, newDirectory);
+      free(newDirectory);
+      if (found) {
+        return found;
+      }
+    } else if (strcmp(dir->d_name, file) == 0) {
+      return 1;
+    }
+  }
+  
+  return 0;
+}
+
+/*
+  Do a depth search in the directories (starting from index 0 path),
+  and return either the index of the directorie that contains the file,
+  or -1 if the command isn't found
+*/
+int findFileInDirectories(const char *file,
+                          char **directoriesPath) {
+  int counter = 0;
+  while (directoriesPath[counter] != NULL) {
+    int found = findFileInDirectory(file, directoriesPath[counter]);
+    if (found) {
+      return counter;
+    }
+    counter++;
   }
   return -1;
 }
 
-void run(const char *cmds) {
-  int qt_args = count_args(cmds);
-  char *args[qt_args + 1];
-  parse(cmds,qt_args,args);
-  if(qt_args == 0)
-    return;
-
-  if(strcmp(args[0],"exit") == 0)
-    exit(0);
-  else if(strcmp(args[0],"cd") == 0) {
-    if(args[1] == NULL)
-      fprintf(stderr,"cd missing argument.\n");
-    else
-      chdir(args[1]);
-  } else if(strcmp(args[0],"clear") == 0) {
-    CLEAR_SCREEN;
-  } else {
-    int pid = fork();
-    if(pid != 0)
-      wait(NULL);
-    else {
-      int p = get_file_path(args[0]);
-      if(p == -1) {
-        fprintf(stderr,"command not found!\n");
-        exit(1);
-      }
-      char program[MAX_LENGTH];
-      strcpy(program,path[p]);
-      strcat(program,args[0]);
-      execv(program,args);
-    }
-  }
-}
-
-// Create the file .shell_path
-void create_shell_path() {
-  FILE *fp = fopen(".shell_path","w");
-  if(fp == NULL) {
-    fprintf(stderr,"error when creating file '.shell_path'\n");
-    exit(1);
-  }
-  fputs("/bin/\n",fp);
-  fputs("/usr/bin/\n",fp); 
-  fclose(fp);
-}
-
-// Count the number of lines in a file
-int count_lines(FILE *f) {
-  char c;
+/*
+  Return the number of lines in the file
+  OBS: Preserves the state of the file
+*/
+int lenLines(FILE *file) {
+  long preservedPosition = ftell(file);
+  assert(preservedPosition != -1);
+  fseek(file, 0, SEEK_SET);
+  
   int ret = 0;
-  for(c = getc(f); c != EOF; c = getc(f))
+  
+  char c;
+  for(c = getc(file); c != EOF; c = getc(file)) {
     ret += (c == '\n');
+  }
+  fseek(file, preservedPosition, SEEK_SET);
+  
   return ret;
 }
 
-// Transfer the directorys in .shell_path to the matrix path
-void init() {
-  FILE *fp = fopen(".shell_path","r");
+/*
+  Return a array o chars containing all lines from source
+*/
+char **getLines(const char *source) {
+  FILE *file = fopen(source, "r");
 
-  if(fp == NULL)
-    create_shell_path();
+  int lenLines_ = lenLines(file);
+  char **sink = malloc((sizeof (char*)) * lenLines_);
 
-  size_path = count_lines(fp);
-  fseek(fp,0,SEEK_SET);
-  path = malloc(size_path * sizeof(char**));
-  int i = 0;
-  for(i = 0; i < size_path; i++) {
-    // TODO: Use less memory
-    path[i] = malloc(sizeof(char[MAX_LENGTH_PATH]));
-    fscanf(fp,"%s",path[i]);
+  fseek(file, 0, SEEK_SET);  
+  char *flag = malloc((sizeof (char)) * MAX_LENGTH_PATH);
+  int line;
+  for (line = 0; line < lenLines_; line++) {
+    fscanf(file, "%s", flag);
+    sink[line] = copy(flag);
+  }
+  free(flag);
+
+  fclose(file);
+
+  return sink;
+}
+
+/*
+  Parse the commands
+*/
+void run(const char *commands) {
+  const int quantityArguments = lenSubstrings(commands, SPLITER);
+
+  if (!quantityArguments) {
+    return;
+  }
+  
+  char **argsSeparated = splitSubstrings(commands, SPLITER);
+  
+  if(strcmp(argsSeparated[0], "exit") == 0) {
+    printf("Bye!\n");
+    exit(0);
+  }
+  else if(strcmp(argsSeparated[0], "cd") == 0) {
+    if(argsSeparated[1] == NULL) {
+      fprintf(stderr, "cd missing argument\n");
+    }
+    else {
+      chdir(argsSeparated[1]);
+    }
+  } else if(strcmp(argsSeparated[0], "clear") == 0) {
+    CLEAR_SCREEN;
+  } else {
+    int forkId = fork();
+    if(forkId != 0) {
+      wait(NULL);
+    }
+    else {
+      int indexDirectory = findFileInDirectories(argsSeparated[0],
+                                                 directoriesFromShellPath);
+      if(indexDirectory == -1) {
+        fprintf(stderr, "command not found\n");
+        exit(0);
+      }
+      char *absolutePathCommand = appendPath(directoriesFromShellPath[indexDirectory],
+                                             argsSeparated[0]);
+      execv(absolutePathCommand, argsSeparated);
+    }
+  }
+  
+  free(argsSeparated);
+}
+
+/*
+  Create a file with the name 'SHELL_PATH' and put some
+  paths inside
+*/
+void createShellPath() {
+  FILE *file = fopen(SHELL_PATH, "w");
+  if(file == NULL) {
+    fprintf(stderr, "error when creating file '%s'\n", SHELL_PATH);
+    exit(1);
   }
 
-  fclose(fp);
+  fputs("/bin/\n", file);
+  fputs("/usr/bin/\n", file);
+  
+  fclose(file);
+}
+
+/*
+  Create the file SHELL_PATH, if doesn't exists
+*/
+void init() {
+  FILE *file = fopen(SHELL_PATH,"r");
+
+  if(file == NULL) {
+    createShellPath();
+  }
+
+  fclose(file);
+
+  directoriesFromShellPath = getLines(SHELL_PATH);
 }
 
 int main() {
   init();
   
-  char line[MAX_LENGTH];
+  char line[MAX_LENGTH_COMMAND];
   while(1) {
     printf("$> ");
 
-    if(!fgets(line,MAX_LENGTH,stdin))
+    if(!fgets(line, MAX_LENGTH_COMMAND, stdin)) {
       exit(0);
+    }
 
     run(line);
   }
+  
   return 0;
 }
