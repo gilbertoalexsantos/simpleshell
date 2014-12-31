@@ -34,19 +34,26 @@ char *copy(const char *source) {
 */
 char *appendPath(const char *source,
                  const char *append) {
-  int offset = 0;
-  int lenSource = strlen(source);
+  int offsetSource = 0, offsetAppend = 0;
+  int lenSource = strlen(source), lenAppend = strlen(append);
+
   if (lenSource) {
-    offset = (source[lenSource - 1] != '/');
+    offsetSource = (source[lenSource - 1] != '/');
   }
+  if (lenAppend) {
+    offsetAppend = append[0] == '/';
+  }
+
+  int newLen = lenSource + lenAppend + offsetSource - offsetAppend;
   
-  char *sink = malloc((sizeof (char)) * (lenSource + strlen(append) + offset));
+  char *sink = malloc((sizeof (char)) * newLen);
   
   strcpy(sink, source);
-  if (offset) {
+  if (offsetSource) {
     strcat(sink, "/");    
   }
-  strcat(sink, append);
+  strcat(sink, offsetAppend ? append+1 : append);
+
   
   return sink;
 }
@@ -196,7 +203,10 @@ void run(const char *commands) {
       fprintf(stderr, "cd missing argument\n");
     }
     else {
-      chdir(argsSeparated[1]);
+      int ret = chdir(argsSeparated[1]);
+      if (ret != 0) {
+        fprintf(stderr, "directory doesn't exist\n");
+      }
     }
   } else if(strcmp(argsSeparated[0], "clear") == 0) {
     CLEAR_SCREEN;
