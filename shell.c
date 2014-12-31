@@ -4,7 +4,6 @@
 #include <ctype.h>
 #include <unistd.h>
 #include <dirent.h>
-#include <assert.h>
 #include <sys/types.h>
 #include <sys/wait.h>
 #include <sys/stat.h>
@@ -98,17 +97,7 @@ char **splitSubstrings(const char *source,
 }
 
 /*
-  Return 1 if the file is a directory, 0 if not.
-*/
-int isDirectory(const char *file) {
-  struct stat st;
-  lstat(file, &st);
-  return (S_ISDIR(st.st_mode)) ? 1 : 0;
-}
-
-/*
-  Do a depth search in the directory trying to find the file,
-  returning 1/0 if found/not found
+  Return 1 if the directory has the file, 0 if not
 */
 int findFileInDirectory(const char *file,
                         const char *directory) {
@@ -119,18 +108,7 @@ int findFileInDirectory(const char *file,
 
   struct dirent *dir;
   while ((dir = readdir(directory_)) != NULL) {
-    if ((strcmp(dir->d_name, ".") == 0) ||
-        (strcmp(dir->d_name, "..") == 0)) {
-      continue;
-    }
-    if (isDirectory(dir->d_name)) {
-      char *newDirectory = appendPath(directory, dir->d_name);
-      int found = findFileInDirectory(file, newDirectory);
-      free(newDirectory);
-      if (found) {
-        return found;
-      }
-    } else if (strcmp(dir->d_name, file) == 0) {
+    if (strcmp(dir->d_name, file) == 0) {
       return 1;
     }
   }
@@ -139,9 +117,8 @@ int findFileInDirectory(const char *file,
 }
 
 /*
-  Do a depth search in the directories (starting from index 0 path),
-  and return either the index of the directorie that contains the file,
-  or -1 if the command isn't found
+  Return the index of the directoryPath, if the file if found,
+  -1 if not
 */
 int findFileInDirectories(const char *file,
                           char **directoriesPath) {
@@ -162,7 +139,6 @@ int findFileInDirectories(const char *file,
 */
 int lenLines(FILE *file) {
   long preservedPosition = ftell(file);
-  assert(preservedPosition != -1);
   fseek(file, 0, SEEK_SET);
   
   int ret = 0;
